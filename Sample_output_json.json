@@ -1,0 +1,160 @@
+[
+  {
+    "metric": "impressions",
+    "change_type": "increase",
+    "change_pct": 0.01,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "All"
+    },
+    "drivers": {
+      "conversion_rate": "-2.8%"
+    },
+    "estimated_impact": 16402.0,
+    "statistical_significance": false,
+    "current_value": 1250769.0
+  },
+  {
+    "metric": "clicks",
+    "change_type": "increase",
+    "change_pct": 0.45,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "All"
+    },
+    "drivers": {
+      "conversion_rate": "-2.8%"
+    },
+    "estimated_impact": 21698.0,
+    "statistical_significance": false,
+    "current_value": 47845.0
+  },
+  {
+    "metric": "spend",
+    "change_type": "increase",
+    "change_pct": 1.59,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "All"
+    },
+    "drivers": {
+      "conversion_rate": "-2.8%"
+    },
+    "estimated_impact": 54705.0,
+    "statistical_significance": false,
+    "current_value": 34426.33
+  },
+  {
+    "metric": "ctr",
+    "change_type": "increase",
+    "change_pct": 1.0,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "All"
+    },
+    "drivers": {
+      "conversion_rate": "-2.8%"
+    },
+    "estimated_impact": 7.0,
+    "statistical_significance": false,
+    "current_value": 6.58
+  },
+  {
+    "metric": "cpc",
+    "change_type": "increase",
+    "change_pct": 1.38,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "All"
+    },
+    "drivers": {
+      "conversion_rate": "-2.8%"
+    },
+    "estimated_impact": 190.0,
+    "statistical_significance": false,
+    "current_value": 137.82
+  },
+  {
+    "metric": "conversion_rate",
+    "change_type": "decrease",
+    "change_pct": -2.82,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "All"
+    },
+    "drivers": {},
+    "estimated_impact": 19.0,
+    "statistical_significance": false,
+    "current_value": 6.76
+  },
+  {
+    "metric": "shoppers",
+    "change_type": "decrease",
+    "change_pct": -0.45,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "All"
+    },
+    "drivers": {
+      "conversion_rate": "-2.8%"
+    },
+    "estimated_impact": 697.0,
+    "statistical_significance": false,
+    "current_value": 1557.0
+  },
+  {
+    "metric": "items_sold",
+    "change_type": "increase",
+    "change_pct": 1.39,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "All"
+    },
+    "drivers": {
+      "conversion_rate": "-2.8%"
+    },
+    "estimated_impact": 3752.0,
+    "statistical_significance": false,
+    "current_value": 2692.0
+  },
+  {
+    "metric": "impressions",
+    "change_type": "increase",
+    "change_pct": 0.01,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "SEM"
+    },
+    "drivers": {
+      "conversion_rate": "-2.8%"
+    },
+    "estimated_impact": 16402.0,
+    "statistical_significance": false,
+    "current_value": 1250769.0
+  },
+  {
+    "metric": "clicks",
+    "change_type": "increase",
+    "change_pct": 0.45,
+    "period": "2025-W01",
+    "dimensions": {
+      "level": "segmented",
+      "segment": "SEM"
+    },
+    "drivers": {
+      "conversion_rate": "-2.8%"
+    },
+    "estimated_impact": 21698.0,
+    "statistical_significance": false,
+    "current_value": 47845.0
+  }
+]

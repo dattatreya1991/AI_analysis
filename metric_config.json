@@ -1,0 +1,256 @@
+{
+  "metric_definitions": {
+    "revenue": {
+      "description": "Total revenue generated",
+      "calculation": "SUM(transaction_amount)",
+      "unit": "currency",
+      "business_criticality": 5.0,
+      "thresholds": {
+        "significant_change": 5.0,
+        "high_impact": 10.0,
+        "critical_impact": 20.0
+      },
+      "statistical_params": {
+        "alpha": 0.05,
+        "min_sample_size": 7,
+        "confidence_level": 0.95
+      }
+    },
+    "profit": {
+      "description": "Net profit after costs",
+      "calculation": "SUM(revenue - costs)",
+      "unit": "currency",
+      "business_criticality": 5.0,
+      "thresholds": {
+        "significant_change": 5.0,
+        "high_impact": 15.0,
+        "critical_impact": 25.0
+      },
+      "statistical_params": {
+        "alpha": 0.05,
+        "min_sample_size": 7,
+        "confidence_level": 0.95
+      }
+    },
+    "shoppers": {
+      "description": "Number of unique shoppers/customers",
+      "calculation": "COUNT(DISTINCT customer_id)",
+      "unit": "count",
+      "business_criticality": 4.0,
+      "thresholds": {
+        "significant_change": 3.0,
+        "high_impact": 8.0,
+        "critical_impact": 15.0
+      },
+      "statistical_params": {
+        "alpha": 0.05,
+        "min_sample_size": 7,
+        "confidence_level": 0.95
+      }
+    },
+    "conversion_rate": {
+      "description": "Percentage of visitors who convert",
+      "calculation": "(conversions / visitors) * 100",
+      "unit": "percentage",
+      "business_criticality": 4.5,
+      "thresholds": {
+        "significant_change": 2.0,
+        "high_impact": 5.0,
+        "critical_impact": 10.0
+      },
+      "statistical_params": {
+        "alpha": 0.05,
+        "min_sample_size": 7,
+        "confidence_level": 0.95
+      }
+    },
+    "bounce_rate": {
+      "description": "Percentage of single-page sessions",
+      "calculation": "(single_page_sessions / total_sessions) * 100",
+      "unit": "percentage",
+      "business_criticality": 3.0,
+      "thresholds": {
+        "significant_change": 3.0,
+        "high_impact": 8.0,
+        "critical_impact": 15.0
+      },
+      "statistical_params": {
+        "alpha": 0.05,
+        "min_sample_size": 7,
+        "confidence_level": 0.95
+      },
+      "interpretation": "inverse",
+      "note": "Lower bounce rate is generally better"
+    },
+    "avg_order_value": {
+      "description": "Average value per order",
+      "calculation": "SUM(order_value) / COUNT(orders)",
+      "unit": "currency",
+      "business_criticality": 4.0,
+      "thresholds": {
+        "significant_change": 4.0,
+        "high_impact": 10.0,
+        "critical_impact": 20.0
+      },
+      "statistical_params": {
+        "alpha": 0.05,
+        "min_sample_size": 7,
+        "confidence_level": 0.95
+      }
+    },
+    "sessions": {
+      "description": "Number of website/app sessions",
+      "calculation": "COUNT(session_id)",
+      "unit": "count",
+      "business_criticality": 3.5,
+      "thresholds": {
+        "significant_change": 5.0,
+        "high_impact": 12.0,
+        "critical_impact": 20.0
+      },
+      "statistical_params": {
+        "alpha": 0.05,
+        "min_sample_size": 7,
+        "confidence_level": 0.95
+      }
+    },
+    "items_sold": {
+      "description": "Total number of items sold",
+      "calculation": "SUM(quantity)",
+      "unit": "count",
+      "business_criticality": 3.5,
+      "thresholds": {
+        "significant_change": 5.0,
+        "high_impact": 12.0,
+        "critical_impact": 20.0
+      },
+      "statistical_params": {
+        "alpha": 0.05,
+        "min_sample_size": 7,
+        "confidence_level": 0.95
+      }
+    }
+  },
+  "analysis_configuration": {
+    "hierarchical_levels": {
+      "overall": {
+        "description": "Aggregate across all dimensions",
+        "enabled": true
+      },
+      "level_1": {
+        "description": "Single dimension analysis",
+        "max_dimensions": 5,
+        "max_values_per_dimension": 15,
+        "enabled": true
+      },
+      "level_2": {
+        "description": "Two dimension combinations",
+        "max_combinations": 20,
+        "max_dimensions_considered": 4,
+        "enabled": true
+      },
+      "level_3": {
+        "description": "Three dimension combinations",
+        "max_combinations": 10,
+        "max_dimensions_considered": 3,
+        "enabled": true
+      },
+      "level_4": {
+        "description": "Four dimension combinations",
+        "max_combinations": 5,
+        "max_dimensions_considered": 2,
+        "enabled": true
+      }
+    },
+    "change_detection": {
+      "wow_calculation": {
+        "periods": 7,
+        "method": "percentage_change"
+      },
+      "yoy_calculation": {
+        "periods": 365,
+        "method": "percentage_change"
+      },
+      "statistical_testing": {
+        "method": "t_test",
+        "default_alpha": 0.05,
+        "min_historical_periods": 7
+      }
+    },
+    "masked_issue_detection": {
+      "overall_change_threshold": 5.0,
+      "segment_change_threshold": 2.0,
+      "max_dimensions_to_check": 2,
+      "max_segments_per_dimension": 10,
+      "enabled": true
+    },
+    "impact_calculation": {
+      "formula": "abs(change_percent) * metric_value * business_criticality_weight",
+      "normalization_factor": 1000,
+      "min_impact_threshold": 0.01
+    },
+    "prioritization": {
+      "top_n_results": 5,
+      "metrics_of_interest": ["revenue", "profit", "shoppers"],
+      "sort_by": "impact_score",
+      "include_statistical_significance": true
+    }
+  },
+  "dimension_configuration": {
+    "excluded_patterns": [
+      "user",
+      "user_id", 
+      "userid",
+      "customer_id",
+      "customerid",
+      "customer",
+      "client_id",
+      "clientid"
+    ],
+    "high_cardinality_threshold": 20,
+    "sampling_strategy": "top_by_volume"
+  },
+  "performance_optimization": {
+    "large_dataset_threshold": 500000,
+    "sampling_strategy": {
+      "recent_data_rows": 100000,
+      "historical_sample_rows": 200000,
+      "random_sample_fallback": 300000
+    },
+    "max_dimensions": 5,
+    "max_metrics": 8
+  },
+  "output_configuration": {
+    "json_output": {
+      "max_results": 10,
+      "include_forecasting": true,
+      "period_format": "YYYY-WXX"
+    },
+    "executive_summary": {
+      "top_takeaways": 5,
+      "recommendations": 3,
+      "include_ai_insights": true
+    },
+    "visualization": {
+      "max_chart_points": 1000,
+      "default_chart_type": "line",
+      "color_scheme": "business"
+    }
+  },
+  "ai_configuration": {
+    "llm_provider": "google_gemini",
+    "model": "gemini-2.0-flash-exp",
+    "features": {
+      "root_cause_analysis": true,
+      "business_recommendations": true,
+      "forecasting": true,
+      "executive_summary": true
+    },
+    "prompt_templates": {
+      "root_cause_analysis": "Analyze the root cause of {metric} change in {dimension} segment",
+      "business_recommendations": "Provide actionable business recommendations for {metric} performance",
+      "forecasting": "Forecast {metric} for next 30 days based on current trends"
+    }
+  }
+}
+

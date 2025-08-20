@@ -1,0 +1,110 @@
+{
+  "revenue": {
+    "increase": {
+      "reasons": [
+        "Successful marketing campaign",
+        "Increased customer demand",
+        "Product innovation or improvement",
+        "Seasonal uplift"
+      ],
+      "recommendations": [
+        "Analyze successful campaign elements for replication",
+        "Invest in product development to maintain momentum",
+        "Expand into new markets or customer segments",
+        "Optimize pricing strategies"
+      ],
+      "flag": "positive"
+    },
+    "decline": {
+      "reasons": [
+        "Increased competitor activity",
+        "Economic downturn affecting consumer spending",
+        "Negative customer feedback or reviews",
+        "Supply chain disruptions",
+        "Seasonal downturn"
+      ],
+      "recommendations": [
+        "Conduct competitive analysis and adjust strategy",
+        "Review pricing and promotional offers",
+        "Address customer feedback promptly",
+        "Diversify supply chain sources",
+        "Launch targeted retention campaigns"
+      ],
+      "flag": "attention"
+    }
+  },
+  "shoppers": {
+    "increase": {
+      "reasons": [
+        "Effective advertising campaigns",
+        "Improved website/app user experience",
+        "Viral marketing or social media buzz",
+        "Partnerships or collaborations"
+      ],
+      "recommendations": [
+        "Scale up successful acquisition channels",
+        "Continue A/B testing UI/UX improvements",
+        "Engage with influencers or community leaders",
+        "Explore new partnership opportunities"
+      ],
+      "flag": "positive"
+    },
+    "decline": {
+      "reasons": [
+        "Reduced marketing spend",
+        "Website/app technical issues",
+        "Decreased brand visibility",
+        "Competitor promotions"
+      ],
+      "recommendations": [
+        "Re-evaluate marketing budget allocation",
+        "Perform technical audit of website/app",
+        "Increase brand awareness efforts",
+        "Monitor competitor activities and respond strategically"
+      ],
+      "flag": "attention"
+    }
+  },
+  "profit": {
+    "increase": {
+      "reasons": [
+        "Optimized operational costs",
+        "Increased sales volume",
+        "Improved profit margins per unit",
+        "Successful cross-selling/up-selling"
+      ],
+      "recommendations": [
+        "Identify further cost-saving opportunities",
+        "Invest in high-margin products/services",
+        "Refine sales strategies for higher value conversions",
+        "Automate manual processes"
+      ],
+      "flag": "positive"
+    },
+    "decline": {
+      "reasons": [
+        "Rising operational costs",
+        "Decreased sales volume",
+        "Price reductions impacting margins",
+        "Increased returns or customer service costs"
+      ],
+      "recommendations": [
+        "Review supplier contracts and negotiate better terms",
+        "Analyze pricing elasticity and adjust as needed",
+        "Improve product quality to reduce returns",
+        "Streamline customer support processes"
+      ],
+      "flag": "attention"
+    }
+  },
+  "default": {
+    "reasons": [
+      "Further investigation needed."
+    ],
+    "recommendations": [
+      "Consult with relevant business stakeholders."
+    ],
+    "flag": "neutral"
+  }
+}
+
