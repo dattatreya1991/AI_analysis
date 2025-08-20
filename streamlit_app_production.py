@@ -239,20 +239,20 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
     stored_business_weights = st.session_state.get('business_weights', {})
     hierarchical_results = st.session_state.hierarchical_results
     
-    #Check if business weights have changed and recalculate impact if needed
+    # Check if business weights have changed and recalculate impact if needed
     weights_changed = False
     if stored_business_weights != business_weights:
         weights_changed = True
         st.session_state.business_weights = business_weights
         
-        #Recalculate impact scores with new weights
+        # Recalculate impact scores with new weights
         significant_results_temp = hierarchical_results.copy()
         significant_results_temp = detect_significant_changes(significant_results_temp, "Metric", "Latest_WoW_Change", threshold, alpha)
         impact_results_updated = calculate_impact(significant_results_temp, "Metric", "Latest_WoW_Change", "Latest_Value", business_weights)
         st.session_state.impact_results = impact_results_updated
     
     st.header("📈 Hierarchical Analysis: What's Changing?")
-    st.markdown("Looking at how  numbers (metrics) are changing over time, both week-to-week and year-to-year, across different categories (dimensions).")
+    st.markdown("Looking at how your numbers (metrics) are changing over time, both week-to-week and year-to-year, across different categories (dimensions).")
     
     st.subheader("📊 Multi-Level Analysis Results")
     st.markdown("""
@@ -375,26 +375,32 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
         impact_results = calculate_impact(significant_results, "Metric", "Latest_WoW_Change", "Latest_Value", business_weights)
         st.session_state.impact_results = impact_results
     
-    #Filter for key metrics if they exist
+    #Filter for key metrics if they exist, but ensure diversity
     key_metrics_for_prioritization = [m for m in ["shoppers", "revenue", "profit"] if m in st.session_state.metrics]
-    if key_metrics_for_prioritization:
-        prioritized_results = prioritize_findings(impact_results, key_metrics_for_prioritization, top_n)
+    
+    # Always show diverse metrics across all available metrics
+    if not impact_results.empty:
+        # Create a diverse top 5 by getting top finding from each metric first
+        diverse_results = pd.DataFrame()
+        
+        # Get top 1 finding from each metric
+        for metric in st.session_state.metrics:
+            metric_data = impact_results[impact_results["Metric"] == metric]
+            if not metric_data.empty:
+                top_metric_finding = metric_data.nlargest(1, "Impact")
+                diverse_results = pd.concat([diverse_results, top_metric_finding])
+        
+        # If we have fewer than top_n results, fill with remaining top findings
+        if len(diverse_results) < top_n:
+            remaining_results = impact_results[~impact_results.index.isin(diverse_results.index)]
+            additional_results = remaining_results.nlargest(top_n - len(diverse_results), "Impact")
+            diverse_results = pd.concat([diverse_results, additional_results])
+        
+        # Sort by impact and take top_n
+        prioritized_results = diverse_results.nlargest(top_n, "Impact")
+        
         if not prioritized_results.empty:
             st.subheader(f"🎯 Top {top_n} Most Impactful Findings:")
-            display_cols = ["Level", "Dimension_Combination", "Metric", "Latest_WoW_Change", "Latest_Value", "Impact"]
-            #Exactly top_n results are shown
-            prioritized_display = prioritized_results[display_cols].sort_values("Impact", ascending=False).head(top_n)
-            st.dataframe(prioritized_display.style.format({"Latest_WoW_Change": "{:.2f}%", "Latest_Value": "{:,.2f}", "Impact": "{:.2f}"}))
-            
-            #Explanation for top impact
-            top_impact = prioritized_display.iloc[0]
-            st.info(f"💡 **Biggest Impact:** {top_impact['Dimension_Combination']} in {top_impact['Metric']} (Impact Score: {top_impact['Impact']:.1f})")
-        else:
-            st.info("No impactful findings available for key metrics (shoppers, revenue, profit). Try adjusting weights or threshold.")
-    else:
-        st.info("Key metrics (shoppers, revenue, profit) not found in selected metrics. Showing top impactful findings across all selected metrics.")
-        prioritized_results = impact_results.sort_values("Impact", ascending=False).head(top_n)
-        if not prioritized_results.empty:
             display_cols = ["Level", "Dimension_Combination", "Metric", "Latest_WoW_Change", "Latest_Value", "Impact"]
             prioritized_display = prioritized_results[display_cols]
             st.dataframe(prioritized_display.style.format({"Latest_WoW_Change": "{:.2f}%", "Latest_Value": "{:,.2f}", "Impact": "{:.2f}"}))
@@ -402,14 +408,20 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
             #Explanation for top impact
             top_impact = prioritized_display.iloc[0]
             st.info(f"💡 **Biggest Impact:** {top_impact['Dimension_Combination']} in {top_impact['Metric']} (Impact Score: {top_impact['Impact']:.1f})")
+            
+            # Show metric diversity
+            metric_counts = prioritized_display['Metric'].value_counts()
+            st.write(f"**Metrics represented:** {', '.join(metric_counts.index.tolist())}")
         else:
             st.info("No impactful findings available. Try adjusting weights or threshold.")
+    else:
+        st.info("No impact results available for prioritization.")
 
-    #Advanced Analysis Section
+    # Advanced Analysis Section
     st.sidebar.header("🔬 Advanced Analysis")
     st.sidebar.write("Select a specific change to deep dive into its root causes.")
     
-    #Create a list of changes for dropdown
+    # Create a list of changes for dropdown
     if not impact_results.empty:
         change_options = []
         for _, row in impact_results.head(20).iterrows():  # Top 20 for dropdown
@@ -430,7 +442,7 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
             # Store selected change in session state
             st.session_state.selected_change_row = selected_change_row
     
-    #Display advanced analysis if a change is selected
+    # Display advanced analysis if a change is selected
     if 'selected_change_row' in st.session_state:
         selected_change_row = st.session_state.selected_change_row
         
@@ -448,7 +460,7 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
         )
         st.markdown(multi_dim_narrative)
         
-        #Cross-Metric Impact Analysis
+        # Cross-Metric Impact Analysis
         st.subheader("🔗 Cross-Metric Impact Analysis")
         cross_metric_narrative = perform_cross_metric_impact_analysis_advanced(
             st.session_state.full_df_for_visualizations,
@@ -459,7 +471,7 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
         )
         st.markdown(cross_metric_narrative)
         
-        #Business Context and Recommendations
+        # Business Context and Recommendations
         ai_powered_text = " (powered by AI)" if use_llm else ""
         st.subheader(f"💡 Business Context and Recommendations{ai_powered_text}")
         
@@ -488,14 +500,14 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
                 )
                 st.markdown(business_context)
         else:
-            #Standard Business Context
+            # Standard Business Context
             business_context = get_business_context(
                 selected_change_row['Metric'],
                 selected_change_row['Latest_WoW_Change']
             )
             st.markdown(business_context)
 
-    #System Integration & Executive Summary Section
+    # System Integration & Executive Summary Section
     st.header("📋 System Integration & Executive Summary")
     st.markdown("Generate structured outputs for system integration and executive reporting.")
     
@@ -538,7 +550,7 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
             with st.expander("View Full Report", expanded=True):
                 st.markdown(executive_report)
             
-            #Download button for report
+            # Download button for report
             st.download_button(
                 label="📥 Download Executive Report",
                 data=executive_report,
@@ -546,13 +558,13 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
                 mime="text/markdown"
             )
 
-    #Visualizations Section
+    # Visualizations Section
     st.header("📊 Visualizations: See the Story!")
     
     st.subheader("📈 How Big Are the Week-over-Week Changes?")
     st.markdown("This graph shows how often different sizes of week-over-week changes happen across all your data.")
     
-    #Metric selector for WoW Change Distribution
+    # Metric selector for WoW Change Distribution
     selected_metric_for_viz = st.selectbox("Select metric for WoW Change Distribution:", st.session_state.metrics)
     
     if selected_metric_for_viz:
@@ -570,7 +582,7 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
         else:
             st.info(f"No data available for {selected_metric_for_viz}")
     
-    #Impact vs Change Scatter Plot
+    # Impact vs Change Scatter Plot
     st.subheader("💥 Impact vs Change: What's Worth Your Attention?")
     st.markdown("This shows the relationship between the size of change and business impact.")
     
@@ -588,7 +600,7 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
         fig2.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="No Change")
         st.plotly_chart(fig2, use_container_width=True)
     
-    #Level Distribution
+    # Level Distribution
     st.subheader("🎯 Analysis Level Distribution")
     st.markdown("Shows how many findings come from each level of analysis.")
     
