@@ -442,6 +442,66 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
             # Store selected change in session state
             st.session_state.selected_change_row = selected_change_row
     
+    
+    # Visualizations Section
+    st.header("📊 Visualizations: See the Story!")
+    
+    st.subheader("📈 How Big Are the Week-over-Week Changes?")
+    st.markdown("This graph shows how often different sizes of week-over-week changes happen across all your data.")
+    
+    # Metric selector for WoW Change Distribution
+    selected_metric_for_viz = st.selectbox("Select metric for WoW Change Distribution:", st.session_state.metrics)
+    
+    if selected_metric_for_viz:
+        metric_results = hierarchical_results[hierarchical_results["Metric"] == selected_metric_for_viz]
+        if not metric_results.empty:
+            fig = px.histogram(
+                metric_results,
+                x="Latest_WoW_Change",
+                nbins=20,
+                title=f"Distribution of Week-over-Week Changes for {selected_metric_for_viz}",
+                labels={"Latest_WoW_Change": "Week-over-Week Change (%)", "count": "Frequency"}
+            )
+            fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="No Change")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info(f"No data available for {selected_metric_for_viz}")
+    
+    # Impact vs Change Scatter Plot
+    st.subheader("💥 Impact vs Change: What's Worth Your Attention?")
+    st.markdown("This shows the relationship between the size of change and business impact.")
+    
+    if not impact_results.empty:
+        fig2 = px.scatter(
+            impact_results.head(50),  # Top 50 for readability
+            x="Latest_WoW_Change",
+            y="Impact",
+            color="Metric",
+            size="Latest_Value",
+            hover_data=["Dimension_Combination", "Level"],
+            title="Business Impact vs Week-over-Week Change",
+            labels={"Latest_WoW_Change": "Week-over-Week Change (%)", "Impact": "Business Impact Score"}
+        )
+        fig2.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="No Change")
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    # Level Distribution
+    st.subheader("🎯 Analysis Level Distribution")
+    st.markdown("Shows how many findings come from each level of analysis.")
+    
+    level_dist = hierarchical_results['Level'].value_counts().reset_index()
+    level_dist.columns = ['Level', 'Count']
+    
+    fig3 = px.bar(
+        level_dist,
+        x='Level',
+        y='Count',
+        title="Number of Findings by Analysis Level",
+        labels={"Count": "Number of Findings", "Level": "Analysis Level"}
+    )
+    st.plotly_chart(fig3, use_container_width=True)
+    
+    
     # Display advanced analysis if a change is selected
     if 'selected_change_row' in st.session_state:
         selected_change_row = st.session_state.selected_change_row
@@ -461,7 +521,7 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
         st.markdown(multi_dim_narrative)
         
         # Cross-Metric Impact Analysis
-        st.subheader("🔗 Cross-Metric Impact Analysis")
+        # st.subheader("🔗 Cross-Metric Impact Analysis")
         cross_metric_narrative = perform_cross_metric_impact_analysis_advanced(
             st.session_state.full_df_for_visualizations,
             st.session_state.metrics,
@@ -558,63 +618,7 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
                 mime="text/markdown"
             )
 
-    # Visualizations Section
-    st.header("📊 Visualizations: See the Story!")
     
-    st.subheader("📈 How Big Are the Week-over-Week Changes?")
-    st.markdown("This graph shows how often different sizes of week-over-week changes happen across all your data.")
-    
-    # Metric selector for WoW Change Distribution
-    selected_metric_for_viz = st.selectbox("Select metric for WoW Change Distribution:", st.session_state.metrics)
-    
-    if selected_metric_for_viz:
-        metric_results = hierarchical_results[hierarchical_results["Metric"] == selected_metric_for_viz]
-        if not metric_results.empty:
-            fig = px.histogram(
-                metric_results,
-                x="Latest_WoW_Change",
-                nbins=20,
-                title=f"Distribution of Week-over-Week Changes for {selected_metric_for_viz}",
-                labels={"Latest_WoW_Change": "Week-over-Week Change (%)", "count": "Frequency"}
-            )
-            fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="No Change")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info(f"No data available for {selected_metric_for_viz}")
-    
-    # Impact vs Change Scatter Plot
-    st.subheader("💥 Impact vs Change: What's Worth Your Attention?")
-    st.markdown("This shows the relationship between the size of change and business impact.")
-    
-    if not impact_results.empty:
-        fig2 = px.scatter(
-            impact_results.head(50),  # Top 50 for readability
-            x="Latest_WoW_Change",
-            y="Impact",
-            color="Metric",
-            size="Latest_Value",
-            hover_data=["Dimension_Combination", "Level"],
-            title="Business Impact vs Week-over-Week Change",
-            labels={"Latest_WoW_Change": "Week-over-Week Change (%)", "Impact": "Business Impact Score"}
-        )
-        fig2.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="No Change")
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # Level Distribution
-    st.subheader("🎯 Analysis Level Distribution")
-    st.markdown("Shows how many findings come from each level of analysis.")
-    
-    level_dist = hierarchical_results['Level'].value_counts().reset_index()
-    level_dist.columns = ['Level', 'Count']
-    
-    fig3 = px.bar(
-        level_dist,
-        x='Level',
-        y='Count',
-        title="Number of Findings by Analysis Level",
-        labels={"Count": "Number of Findings", "Level": "Analysis Level"}
-    )
-    st.plotly_chart(fig3, use_container_width=True)
 
     st.markdown("---")
     st.markdown("### 🎉 Analysis Complete!")
