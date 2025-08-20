@@ -322,14 +322,23 @@ def calculate_impact(df, metric_col, change_col, metric_value_col, business_crit
     return df
 
 def prioritize_findings(df, metrics_of_interest, top_n=5):
-    """Prioritize findings by business impact - optimized"""
+    """Prioritize findings by business impact - ensures diverse metrics in results"""
     prioritized_results = pd.DataFrame()
     
+    # First, try to get top finding from each metric of interest
     for metric in metrics_of_interest:
         if metric in df["Metric"].values:
-            metric_df = df[df["Metric"] == metric].nlargest(top_n, "Impact")
+            metric_df = df[df["Metric"] == metric].nlargest(1, "Impact")  # Get top 1 from each metric
             prioritized_results = pd.concat([prioritized_results, metric_df])
     
+    # If we don't have enough results, fill with remaining top findings
+    if len(prioritized_results) < top_n:
+        # Get remaining findings excluding already selected ones
+        remaining_df = df[~df.index.isin(prioritized_results.index)]
+        additional_results = remaining_df.nlargest(top_n - len(prioritized_results), "Impact")
+        prioritized_results = pd.concat([prioritized_results, additional_results])
+    
+    # Sort by impact and return top_n
     return prioritized_results.nlargest(top_n, "Impact")
 
 def perform_multi_dimensional_breakdown_advanced(df, dimensions, target_metric, date_col, dimension_combination):
@@ -582,15 +591,15 @@ def get_business_context(metric, change_percentage):
     change_type = "positive" if change_percentage > 0 else "negative"
     change_magnitude = "significant" if abs(change_percentage) > 10 else "moderate"
     
-    #Get context for the metric
+    # Get context for the metric
     metric_context = business_contexts.get(metric, {})
     change_context = metric_context.get(change_type, {})
     
-    #Build narrative
+    # Build narrative
     narrative = f"## 💡 Business Context and Recommendations\n\n"
     narrative += f"Here are some possible business reasons and actionable recommendations for this change.\n\n"
     
-    #Determine trend classification
+    # Determine trend classification
     if abs(change_percentage) < 2:
         trend_class = "Stable Trend"
         trend_color = "🔵"
@@ -610,13 +619,14 @@ def get_business_context(metric, change_percentage):
     
     narrative += f"{trend_color} **{trend_class} - {trend_desc}**\n\n"
     
-
+    # Add possible reasons
     narrative += "**Possible Business Reasons:**\n\n"
     reasons = change_context.get("reasons", ["No specific reasons defined."])
     for reason in reasons:
         narrative += f"• {reason}\n"
     narrative += "\n"
     
+    # Add recommendations
     narrative += "**Actionable Recommendations:**\n\n"
     recommendations = change_context.get("recommendations", ["No specific recommendations defined."])
     for rec in recommendations:
