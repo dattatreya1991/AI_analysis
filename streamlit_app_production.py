@@ -199,7 +199,8 @@ st.sidebar.header("💰 Business Importance Weights")
 st.sidebar.write("How important each number is for the business (higher = more important).")
 business_weights = {}
 for metric in metrics:
-    business_weights[metric] = st.sidebar.slider(f"Importance of **{metric}**", 0.1, 5.0, 1.0)
+    # Use a unique key for each slider to ensure proper state management
+    business_weights[metric] = st.sidebar.slider(f"Importance of **{metric}**", 0.1, 5.0, 1.0, key=f"weight_{metric}")
 
 #Main analysis
 if st.button("🚀 Run Analysis!", type="primary"):
@@ -235,11 +236,23 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
     threshold = st.session_state.get('threshold', 5)
     alpha = st.session_state.get('alpha', 0.05)
     top_n = st.session_state.get('top_n', 5)
-    business_weights = st.session_state.get('business_weights', {})
+    stored_business_weights = st.session_state.get('business_weights', {})
     hierarchical_results = st.session_state.hierarchical_results
     
+    #Check if business weights have changed and recalculate impact if needed
+    weights_changed = False
+    if stored_business_weights != business_weights:
+        weights_changed = True
+        st.session_state.business_weights = business_weights
+        
+        #Recalculate impact scores with new weights
+        significant_results_temp = hierarchical_results.copy()
+        significant_results_temp = detect_significant_changes(significant_results_temp, "Metric", "Latest_WoW_Change", threshold, alpha)
+        impact_results_updated = calculate_impact(significant_results_temp, "Metric", "Latest_WoW_Change", "Latest_Value", business_weights)
+        st.session_state.impact_results = impact_results_updated
+    
     st.header("📈 Hierarchical Analysis: What's Changing?")
-    st.markdown("Looking at how your numbers (metrics) are changing over time, both week-to-week and year-to-year, across different categories (dimensions).")
+    st.markdown("Looking at how  numbers (metrics) are changing over time, both week-to-week and year-to-year, across different categories (dimensions).")
     
     st.subheader("📊 Multi-Level Analysis Results")
     st.markdown("""
@@ -352,10 +365,15 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
     #Impact-based prioritization
     st.header("💥Impact-Based Prioritization: What Matters Most?")
     st.markdown("From all the changes, showing the ones that have the biggest impact on business, based on how important each number is.")
-    impact_results = calculate_impact(significant_results, "Metric", "Latest_WoW_Change", "Latest_Value", business_weights)
     
-    #Store impact results in session state
-    st.session_state.impact_results = impact_results
+    # Use updated impact results if weights changed, otherwise calculate fresh
+    if 'impact_results' in st.session_state and not weights_changed:
+        impact_results = st.session_state.impact_results
+    else:
+        significant_results = hierarchical_results.copy()
+        significant_results = detect_significant_changes(significant_results, "Metric", "Latest_WoW_Change", threshold, alpha)
+        impact_results = calculate_impact(significant_results, "Metric", "Latest_WoW_Change", "Latest_Value", business_weights)
+        st.session_state.impact_results = impact_results
     
     #Filter for key metrics if they exist
     key_metrics_for_prioritization = [m for m in ["shoppers", "revenue", "profit"] if m in st.session_state.metrics]
@@ -378,375 +396,215 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
         prioritized_results = impact_results.sort_values("Impact", ascending=False).head(top_n)
         if not prioritized_results.empty:
             display_cols = ["Level", "Dimension_Combination", "Metric", "Latest_WoW_Change", "Latest_Value", "Impact"]
-            st.dataframe(prioritized_results[display_cols].style.format({"Latest_WoW_Change": "{:.2f}%", "Latest_Value": "{:,.2f}", "Impact": "{:.2f}"}))
+            prioritized_display = prioritized_results[display_cols]
+            st.dataframe(prioritized_display.style.format({"Latest_WoW_Change": "{:.2f}%", "Latest_Value": "{:,.2f}", "Impact": "{:.2f}"}))
+            
+            #Explanation for top impact
+            top_impact = prioritized_display.iloc[0]
+            st.info(f"💡 **Biggest Impact:** {top_impact['Dimension_Combination']} in {top_impact['Metric']} (Impact Score: {top_impact['Impact']:.1f})")
         else:
-            st.info("No impactful findings across all selected metrics. Try adjusting weights or threshold.")
+            st.info("No impactful findings available. Try adjusting weights or threshold.")
 
-#Dynamic Visualizations Section (Outside the main analysis button)
-if st.session_state.analysis_completed and not st.session_state.hierarchical_results.empty:
-    st.header("📊Visualizations: See the Story!")
+    #Advanced Analysis Section
+    st.sidebar.header("🔬 Advanced Analysis")
+    st.sidebar.write("Select a specific change to deep dive into its root causes.")
     
-    #WoW Change distribution
-    st.subheader("📈 How Big Are the Week-over-Week Changes?")
-    st.markdown("This graph shows how often different sizes of week-over-week changes happen across all  data.")
-    
-    #Allow user to select metric for histogram 
-    selected_hist_metric = st.selectbox("Select metric for WoW Change Distribution:", 
-                                       st.session_state.metrics, 
-                                       key="histogram_metric_selector")
-    
-    if selected_hist_metric:
-        hist_data = st.session_state.hierarchical_results[st.session_state.hierarchical_results["Metric"] == selected_hist_metric]["Latest_WoW_Change"].dropna()
-        hist_data = hist_data[hist_data != 0]  # Remove zero changes for better visualization
+    #Create a list of changes for dropdown
+    if not impact_results.empty:
+        change_options = []
+        for _, row in impact_results.head(20).iterrows():  # Top 20 for dropdown
+            change_desc = f"{row['Metric']} for {row['Dimension_Combination']} ({row['Latest_WoW_Change']:+.2f}%) - {row['Level']}"
+            change_options.append(change_desc)
         
-        if not hist_data.empty and len(hist_data) > 1:
-            fig = px.histogram(hist_data, title=f"Distribution of Week-over-Week Changes for {selected_hist_metric}", 
-                             nbins=min(30, len(hist_data.unique())),
-                             labels={
-                                 "value": "WoW Change (%)",
-                                 "count": "Number of Occurrences"
-                             },
-                             color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig.update_layout(xaxis_title="WoW Change (%)", yaxis_title="Count")
-            st.plotly_chart(fig, use_container_width=True, key=f"histogram_{selected_hist_metric}")
-            
-            #Interpretation
-            avg_change = hist_data.mean()
-            max_change = hist_data.max()
-            min_change = hist_data.min()
-            st.markdown(f"**What this shows:** For **{selected_hist_metric}**, the average change is **{avg_change:.1f}%**, with the biggest increase at **{max_change:.1f}%** and biggest decrease at **{min_change:.1f}%**.")
-        else:
-            st.info(f"Not enough varied data for {selected_hist_metric} to show WoW Change Distribution. This might happen with very stable data.")
-    
-    #Impact vs Change scatter plot
-    if not st.session_state.impact_results.empty and "Impact" in st.session_state.impact_results.columns:
-        st.subheader("💥 Impact vs WoW Change: What's Driving Value?")
-        plot_data = st.session_state.impact_results[st.session_state.impact_results["Impact"] > 0] #Only show positive impact
+        selected_change = st.sidebar.selectbox(
+            "Choose a change to analyze:",
+            change_options,
+            key="advanced_analysis_selector"
+        )
         
-        if not plot_data.empty and len(plot_data) > 1:
-            fig = px.scatter(plot_data, x="Latest_WoW_Change", y="Impact", 
-                           color="Metric", hover_data=["Level", "Dimension_Combination", "Latest_Value"],
-                           title="Business Impact vs. Week-over-Week Change",
-                           labels={
-                               "Latest_WoW_Change": "WoW Change (%)",
-                               "Impact": "Business Impact Score"
-                           },
-                           size="Impact", #Size of marker by impact
-                           color_discrete_sequence=px.colors.qualitative.Set2)
-            fig.update_layout(xaxis_title="WoW Change (%)", yaxis_title="Business Impact Score")
-            st.plotly_chart(fig, use_container_width=True, key="impact_scatter")
+        if selected_change:
+            # Find the corresponding row
+            selected_index = change_options.index(selected_change)
+            selected_change_row = impact_results.head(20).iloc[selected_index]
             
-            #Add interpretation
-            high_impact_items = plot_data[plot_data["Impact"] > plot_data["Impact"].quantile(0.8)]
-            if not high_impact_items.empty:
-                st.markdown("**What this shows:** Each dot represents a metric-dimension combination. Bigger dots = higher business impact. Look for dots far from the center - they represent the most significant changes!")
-        else:
-            st.info("Not enough data with positive impact to display in scatter plot. Try adjusting weights or threshold.")
-    else:
-        st.info("Impact data not available for scatter plot.")
+            # Store selected change in session state
+            st.session_state.selected_change_row = selected_change_row
     
-    #Time series for selected metrics 
-    st.subheader("⏳ Time Series Analysis: How Numbers Change Over Time")
-    st.markdown("Pick a number (metric) to see how it has changed day by day.")
-    
-    selected_metric_ts = st.selectbox("Which number do you want to see over time?", 
-                                     st.session_state.metrics, 
-                                     key="timeseries_metric_selector")
-    
-    if selected_metric_ts and not st.session_state.full_df_for_visualizations.empty:
-        #Use the stored dataframe for time series plotting
-        time_series_data = st.session_state.full_df_for_visualizations.groupby(st.session_state.date_column)[selected_metric_ts].sum().reset_index()
-        fig = px.line(time_series_data, x=st.session_state.date_column, y=selected_metric_ts, 
-                     title=f"Daily {selected_metric_ts} Over Time",
-                     labels={
-                         st.session_state.date_column: "Date",
-                         selected_metric_ts: f"{selected_metric_ts} Value"
-                     },
-                     color_discrete_sequence=px.colors.qualitative.Plotly)
-        fig.update_layout(xaxis_title="Date", yaxis_title=f"{selected_metric_ts} Value")
-        st.plotly_chart(fig, use_container_width=True, key=f"timeseries_{selected_metric_ts}")
+    #Display advanced analysis if a change is selected
+    if 'selected_change_row' in st.session_state:
+        selected_change_row = st.session_state.selected_change_row
         
-        #Add trend interpretation
-        #Ensure enough data points for trend calculation
-        if len(time_series_data) >= 60: # At least 2 months of data for a meaningful trend
-            recent_avg = time_series_data[selected_metric_ts].tail(30).mean()
-            older_avg = time_series_data[selected_metric_ts].head(30).mean()
-            trend_change = ((recent_avg - older_avg) / older_avg) * 100 if older_avg > 0 else 0
-            
-            if trend_change > 5:
-                st.success(f"📈 **Trend:** {selected_metric_ts} is trending upward! Recent 30-day average is {trend_change:.1f}% higher than the beginning.")
-            elif trend_change < -5:
-                st.warning(f"📉 **Trend:** {selected_metric_ts} is trending downward. Recent 30-day average is {abs(trend_change):.1f}% lower than the beginning.")
-            else:
-                st.info(f"📊 **Trend:** {selected_metric_ts} is relatively stable with {trend_change:.1f}% change from beginning to recent period.")
+        st.header("🔍 Root Cause Analysis: The Full Story!")
+        st.markdown(f"Deep diving into **{selected_change_row['Metric']}** changes in **{selected_change_row['Dimension_Combination']}**")
+        
+        # Multi-Dimensional Breakdown
+        st.subheader("🔍 Multi-Dimensional Breakdown")
+        multi_dim_narrative = perform_multi_dimensional_breakdown_advanced(
+            st.session_state.full_df_for_visualizations, 
+            st.session_state.dimensions, 
+            selected_change_row['Metric'], 
+            st.session_state.date_column,
+            selected_change_row['Dimension_Combination']
+        )
+        st.markdown(multi_dim_narrative)
+        
+        #Cross-Metric Impact Analysis
+        st.subheader("🔗 Cross-Metric Impact Analysis")
+        cross_metric_narrative = perform_cross_metric_impact_analysis_advanced(
+            st.session_state.full_df_for_visualizations,
+            st.session_state.metrics,
+            selected_change_row['Metric'],
+            st.session_state.date_column,
+            selected_change_row['Dimension_Combination']
+        )
+        st.markdown(cross_metric_narrative)
+        
+        #Business Context and Recommendations
+        ai_powered_text = " (powered by AI)" if use_llm else ""
+        st.subheader(f"💡 Business Context and Recommendations{ai_powered_text}")
+        
+        if use_llm:
+            # AI-Enhanced Analysis
+            try:
+                # Create summary of full dataframe for LLM context
+                full_df_summary = create_dataframe_summary(st.session_state.full_df_for_visualizations)
+                
+                ai_analysis = generate_enhanced_root_cause_analysis(
+                    selected_change_row,
+                    multi_dim_narrative,
+                    cross_metric_narrative,
+                    hierarchical_results,
+                    full_df_summary,
+                    st.session_state.full_df_for_visualizations,
+                    st.session_state.date_column
+                )
+                st.markdown(ai_analysis)
+            except Exception as e:
+                st.error(f"AI analysis failed: {str(e)}")
+                # Fallback to standard business context
+                business_context = get_business_context(
+                    selected_change_row['Metric'],
+                    selected_change_row['Latest_WoW_Change']
+                )
+                st.markdown(business_context)
         else:
-            st.info("Not enough data to reliably calculate a long-term trend for this metric.")
+            #Standard Business Context
+            business_context = get_business_context(
+                selected_change_row['Metric'],
+                selected_change_row['Latest_WoW_Change']
+            )
+            st.markdown(business_context)
 
-    #JSON Output and Executive Summary Section
+    #System Integration & Executive Summary Section
     st.header("📋 System Integration & Executive Summary")
+    st.markdown("Generate structured outputs for system integration and executive reporting.")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🔗 Structured JSON Output")
-        st.markdown("**For system integration and API consumption**")
-        
-        if st.button("📊 Generate JSON Output", key="generate_json"):
-            with st.spinner("Generating structured JSON output..."):
-                try:
-                    # Generate JSON output
-                    json_output = generate_structured_json_output(
-                        st.session_state.hierarchical_results,
-                        st.session_state.impact_results,
-                        detect_masked_issues_improved(st.session_state.full_df_for_visualizations, st.session_state.dimensions, st.session_state.metrics, st.session_state.date_column),
-                        st.session_state.date_column,
-                        st.session_state.full_df_for_visualizations
-                    )
-                    
-                    st.code(json_output, language="json")
-                    
-                    #Download button for JSON
-                    st.download_button(
-                        label="💾 Download JSON",
-                        data=json_output,
-                        file_name=f"analysis_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.json",
-                        mime="application/json"
-                    )
-                    
-                except Exception as e:
-                    st.error(f"Error generating JSON output: {str(e)}")
+        if st.button("📊 Generate JSON Output"):
+            json_output = generate_structured_json_output(
+                hierarchical_results, 
+                impact_results, 
+                masked_issues, 
+                st.session_state.date_column,
+                st.session_state.full_df_for_visualizations
+            )
+            
+            st.subheader("🔗 Structured JSON for System Integration")
+            st.json(json_output)
+            
+            # Download button for JSON
+            import json
+            json_str = json.dumps(json_output, indent=2)
+            st.download_button(
+                label="💾 Download JSON",
+                data=json_str,
+                file_name="analysis_results.json",
+                mime="application/json"
+            )
     
     with col2:
-        st.subheader("📄 Executive Summary Report")
-        st.markdown("**Downloadable markdown report for executives**")
-        
-        if st.button("📝 Generate Executive Report", key="generate_report"):
-            with st.spinner("Generating executive summary report."):
-                try:
-                    business_context_summary = ""
-                    if use_llm and GEMINI_AVAILABLE:
-                        try:
-                            analysis_summary = create_analysis_summary(st.session_state.hierarchical_results, st.session_state.metrics, st.session_state.dimensions)
-                            impact_results = st.session_state.get('impact_results', pd.DataFrame())
-                            masked_issues = detect_masked_issues_improved(st.session_state.full_df_for_visualizations, st.session_state.dimensions, st.session_state.metrics, st.session_state.date_column)
-                            business_context_summary = generate_business_insights_with_llm(analysis_summary, st.session_state.hierarchical_results, impact_results, masked_issues)
-                        except:
-                            business_context_summary = "AI-enhanced insights unavailable."
-                    
-                    #Generate executive report
-                    executive_report = generate_executive_summary_report(
-                        st.session_state.hierarchical_results,
-                        st.session_state.impact_results,
-                        detect_masked_issues_improved(st.session_state.full_df_for_visualizations, st.session_state.dimensions, st.session_state.metrics, st.session_state.date_column),
-                        business_context_summary,
-                        use_llm and GEMINI_AVAILABLE
-                    )
-                    
-                    #Display preview
-                    st.markdown("**Report Preview:**")
-                    with st.expander("📖 View Full Report", expanded=False):
-                        st.markdown(executive_report)
-                    
-                    # Download button for report
-                    st.download_button(
-                        label="📥 Download Executive Report",
-                        data=executive_report,
-                        file_name=f"executive_summary_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
-                        mime="text/markdown"
-                    )
-                    
-                except Exception as e:
-                    st.error(f"Error generating executive report: {str(e)}")
-
-#Additional information
-st.sidebar.header("💡 About This Tool")
-st.sidebar.info(
-    "This tool helps understand your business data better by automatically finding important changes, "
-    "hidden issues, and what's driving your numbers up or down!"
-)
-
-st.sidebar.header("🎯 How to Interpret Results")
-st.sidebar.markdown("""
-**📈 WoW Change:** Week-over-week percentage change
-**📅 YoY Change:** Year-over-year percentage change  
-**🏆 Top Performers:** Segments with biggest increases
-**📉 Bottom Performers:** Segments with biggest decreases
-**🎭 Masked Issues:** Hidden problems where overall looks stable but segments are changing
-**💥 Impact Score:** How much a change affects your business (bigger = more important)
-**✨ Statistical Significance:** Whether a change is likely real or just random chance (p-value < alpha means it's significant!)
-""")
-
-
-
-#Advanced Analysis Section
-if st.session_state.analysis_completed:
-    st.sidebar.header("🔬 Advanced Analysis")
-    st.sidebar.markdown("Select a specific change to deep dive into its root causes.")
-
-    #Prepare data for selection
-    if not st.session_state.hierarchical_results.empty:
-        #Create a unique identifier for each change for the dropdown
-        def create_change_id(row):
-            return f"{row['Metric']} for {row['Dimension_Combination']} ({row['Latest_WoW_Change']:.2f}%) - {row['Level']}"
-        
-        st.session_state.hierarchical_results["Change_ID"] = st.session_state.hierarchical_results.apply(create_change_id, axis=1)
-        
-        selected_change_id = st.sidebar.selectbox(
-            "Choose a change to analyze:",
-            options=["Select a change..."] + st.session_state.hierarchical_results["Change_ID"].tolist(),
-            key="advanced_analysis_selector"
-        )
-
-    else:
-        st.sidebar.info("Run the initial analysis first to enable advanced root cause analysis.")
-
-#Display Advanced Analysis content based on selection
-if st.session_state.analysis_completed and not st.session_state.hierarchical_results.empty:
-    #Check if a change is selected for advanced analysis
-    if 'advanced_analysis_selector' in st.session_state and st.session_state.advanced_analysis_selector != "Select a change...":
-        selected_change_id = st.session_state.advanced_analysis_selector
-        selected_change_row = st.session_state.hierarchical_results[
-            st.session_state.hierarchical_results["Change_ID"] == selected_change_id
-        ].iloc[0]
-
-        st.header("🔬 Root Cause Analysis: The Full Story!")
-        st.markdown("Let's dig deeper into why this change happened and what it means for the business.")
-
-        #Multi-Dimensional Breakdown Section
-        st.subheader("🔍 Multi-Dimensional Breakdown")
-        st.markdown("This shows how other related metrics changed within the same segment.")
-        
-        try:
-            with st.spinner("Analyzing multi-dimensional breakdown..."):
-                multi_dim_narrative = perform_multi_dimensional_breakdown_advanced(
-                    st.session_state.full_df_for_visualizations,
-                    selected_change_row,
-                    st.session_state.date_column,
-                    st.session_state.metrics,
-                    st.session_state.dimensions,
-                    alpha
-                )
-                for line in multi_dim_narrative:
-                    st.markdown(line)
-        except Exception as e:
-            st.error(f"Error in multi-dimensional breakdown: {str(e)}")
-
-        #Cross-Metric Impact Analysis Section
-        st.subheader("🔗 Cross-Metric Impact Analysis")
-        st.markdown("Understanding the upstream and downstream factors that influenced this change.")
-        
-        try:
-            with st.spinner("Analyzing cross-metric impacts..."):
-                cross_metric_narrative = perform_cross_metric_impact_analysis_advanced(
-                    st.session_state.full_df_for_visualizations,
-                    selected_change_row,
-                    st.session_state.date_column,
-                    st.session_state.metrics,
-                    st.session_state.dimensions,
-                    alpha
-                )
-                for line in cross_metric_narrative:
-                    st.markdown(line)
-        except Exception as e:
-            st.error(f"Error in cross-metric impact analysis: {str(e)}")
-
-        #Business Context and Recommendations Section
-        if use_llm:
-            st.subheader("💡 Business Context and Recommendations (Powered by AI)")
-        else:
-            st.subheader("💡 Business Context and Recommendations")
-        
-        if use_llm:
-            try:
-                with st.spinner("🤖 AI is analyzing all data to generate comprehensive business insights..."):
-                    #Create comprehensive analysis summary for LLM
-                    analysis_summary = create_analysis_summary(st.session_state.hierarchical_results, st.session_state.metrics, st.session_state.dimensions)
-                    impact_results = st.session_state.get('impact_results', pd.DataFrame())
-                    masked_issues = detect_masked_issues_improved(st.session_state.full_df_for_visualizations, st.session_state.dimensions, st.session_state.metrics, st.session_state.date_column)
-                    
-                
-                try:
-                    with st.spinner("🤖 AI is conducting deep root cause analysis..."):
-                        #Generate enhanced root cause analysis with forecasting
-                        enhanced_analysis = generate_enhanced_root_cause_analysis(
-                            selected_change_row, 
-                            multi_dim_narrative, 
-                            cross_metric_narrative, 
-                            st.session_state.hierarchical_results,
-                            create_dataframe_summary(st.session_state.full_df_for_visualizations),
-                            st.session_state.full_df_for_visualizations,  # Pass full dataframe for forecasting
-                            st.session_state.date_column  # Pass date column for forecasting
-                        )
-                        
-                        st.markdown(enhanced_analysis)
-                        
-                except Exception as e:
-                    st.error(f"Error generating enhanced root cause analysis: {str(e)}")
-                    st.markdown("The standard analysis sections above provide the available insights.")
-                    
-            except Exception as e:
-                st.error(f"Error generating AI insights: {str(e)}")
-                st.markdown("Falling back to standard business context analysis...")
-                #Fallback to original logic
-                change_direction = "increase" if selected_change_row["Latest_WoW_Change"] > 0 else "decline"
-                business_context = get_business_context(selected_change_row["Metric"].lower(), change_direction)
-                
-                if business_context["flag"] == "attention":
-                    st.error("🚨 **Requires Immediate Attention!**")
-                elif business_context["flag"] == "positive":
-                    st.success("✅ **Positive Trend to Amplify!**")
-                else:
-                    st.info("ℹ️ **Neutral Trend - Further Investigation Recommended.**")
-
-                st.markdown("**Possible Business Reasons:**")
-                for reason in business_context["reasons"]:
-                    st.markdown(f"- {reason}")
-
-                st.markdown("**Actionable Recommendations:**")
-                for rec in business_context["recommendations"]:
-                    st.markdown(f"- {rec}")
-        else:
-            st.markdown("Here are some possible business reasons and actionable recommendations for this change.")
+        if st.button("📝 Generate Executive Report"):
+            executive_report = generate_executive_summary_report(
+                hierarchical_results,
+                impact_results,
+                masked_issues,
+                business_weights,
+                use_llm
+            )
             
-            try:
-                change_direction = "increase" if selected_change_row["Latest_WoW_Change"] > 0 else "decline"
-                business_context = get_business_context(selected_change_row["Metric"].lower(), change_direction)
-                
-                if business_context["flag"] == "attention":
-                    st.error("🚨 **Requires Immediate Attention!**")
-                elif business_context["flag"] == "positive":
-                    st.success("✅ **Positive Trend to Amplify!**")
-                else:
-                    st.info("ℹ️ **Neutral Trend - Further Investigation Recommended.**")
+            st.subheader("📄 Executive Summary Report")
+            with st.expander("View Full Report", expanded=True):
+                st.markdown(executive_report)
+            
+            #Download button for report
+            st.download_button(
+                label="📥 Download Executive Report",
+                data=executive_report,
+                file_name="executive_summary.md",
+                mime="text/markdown"
+            )
 
-                st.markdown("**Possible Business Reasons:**")
-                for reason in business_context["reasons"]:
-                    st.markdown(f"- {reason}")
+    #Visualizations Section
+    st.header("📊 Visualizations: See the Story!")
+    
+    st.subheader("📈 How Big Are the Week-over-Week Changes?")
+    st.markdown("This graph shows how often different sizes of week-over-week changes happen across all your data.")
+    
+    #Metric selector for WoW Change Distribution
+    selected_metric_for_viz = st.selectbox("Select metric for WoW Change Distribution:", st.session_state.metrics)
+    
+    if selected_metric_for_viz:
+        metric_results = hierarchical_results[hierarchical_results["Metric"] == selected_metric_for_viz]
+        if not metric_results.empty:
+            fig = px.histogram(
+                metric_results,
+                x="Latest_WoW_Change",
+                nbins=20,
+                title=f"Distribution of Week-over-Week Changes for {selected_metric_for_viz}",
+                labels={"Latest_WoW_Change": "Week-over-Week Change (%)", "count": "Frequency"}
+            )
+            fig.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="No Change")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info(f"No data available for {selected_metric_for_viz}")
+    
+    #Impact vs Change Scatter Plot
+    st.subheader("💥 Impact vs Change: What's Worth Your Attention?")
+    st.markdown("This shows the relationship between the size of change and business impact.")
+    
+    if not impact_results.empty:
+        fig2 = px.scatter(
+            impact_results.head(50),  # Top 50 for readability
+            x="Latest_WoW_Change",
+            y="Impact",
+            color="Metric",
+            size="Latest_Value",
+            hover_data=["Dimension_Combination", "Level"],
+            title="Business Impact vs Week-over-Week Change",
+            labels={"Latest_WoW_Change": "Week-over-Week Change (%)", "Impact": "Business Impact Score"}
+        )
+        fig2.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="No Change")
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    #Level Distribution
+    st.subheader("🎯 Analysis Level Distribution")
+    st.markdown("Shows how many findings come from each level of analysis.")
+    
+    level_dist = hierarchical_results['Level'].value_counts().reset_index()
+    level_dist.columns = ['Level', 'Count']
+    
+    fig3 = px.bar(
+        level_dist,
+        x='Level',
+        y='Count',
+        title="Number of Findings by Analysis Level",
+        labels={"Count": "Number of Findings", "Level": "Analysis Level"}
+    )
+    st.plotly_chart(fig3, use_container_width=True)
 
-                st.markdown("**Actionable Recommendations:**")
-                for rec in business_context["recommendations"]:
-                    st.markdown(f"- {rec}")
-            except Exception as e:
-                st.error(f"Error in business context analysis: {str(e)}")
-                business_context = get_business_context(selected_change_row["Metric"].lower(), change_direction)
-                
-                if business_context["flag"] == "attention":
-                    st.error("🚨 **Requires Immediate Attention!**")
-                elif business_context["flag"] == "positive":
-                    st.success("✅ **Positive Trend to Amplify!**")
-                else:
-                    st.info("ℹ️ **Neutral Trend - Further Investigation Recommended.**")
-
-                st.markdown("**Possible Business Reasons:**")
-                for reason in business_context["reasons"]:
-                    st.markdown(f"- {reason}")
-
-                st.markdown("**Actionable Recommendations:**")
-                for rec in business_context["recommendations"]:
-                    st.markdown(f"- {rec}")
-            except Exception as e:
-                st.error(f"Error in business context analysis: {str(e)}")
-
-
-
+    st.markdown("---")
+    st.markdown("### 🎉 Analysis Complete!")
+    st.markdown("You now have a comprehensive view of what's changing in your business data. Use the insights above to make data-driven decisions!")
 
