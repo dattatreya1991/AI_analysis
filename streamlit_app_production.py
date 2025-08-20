@@ -450,7 +450,7 @@ if st.session_state.analysis_completed and not st.session_state.hierarchical_res
         st.markdown(f"Deep diving into **{selected_change_row['Metric']}** changes in **{selected_change_row['Dimension_Combination']}**")
         
         # Multi-Dimensional Breakdown
-        st.subheader("🔍 Multi-Dimensional Breakdown")
+        # st.subheader("🔍 Multi-Dimensional Breakdown")
         multi_dim_narrative = perform_multi_dimensional_breakdown_advanced(
             st.session_state.full_df_for_visualizations, 
             st.session_state.dimensions, 
